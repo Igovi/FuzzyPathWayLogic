@@ -7,7 +7,7 @@ from skfuzzy import control as ctrl
 
 MAP_SIZE = 6.0
 ROBOT_RADIUS = 0.25
-MARGEM_COLISAO = 0.001
+MARGEM_COLISAO = 0.01
 VELOCIDADE = 0.3
 DT = 0.1
 
@@ -195,7 +195,7 @@ def inicializar_interface():
     fig, ax = plt.subplots(figsize=(10, 10))
     ax.set_xlim(0, MAP_SIZE)
     ax.set_ylim(0, MAP_SIZE)
-    ax.set_title('Navegação Fuzzy', fontsize=14)
+    ax.set_title('Navegação Fuzzy - Lidar Visualization', fontsize=14)
     ax.set_xlabel('X (m)')
     ax.set_ylabel('Y (m)')
     ax.grid(True, alpha=0.3)
@@ -203,6 +203,11 @@ def inicializar_interface():
     alvo, = ax.plot([], [], 'ro', markersize=12, label='Alvo', zorder=5)
     rob, = ax.plot([], [], 'bo', markersize=10, label='Robô', zorder=5)
     traj, = ax.plot([], [], 'b-', linewidth=1.5, alpha=0.6, label='Trajetória')
+    
+    ray_f, = ax.plot([], [], 'g-', linewidth=1, alpha=0.5) 
+    ray_l, = ax.plot([], [], 'g-', linewidth=1, alpha=0.5) 
+    ray_r, = ax.plot([], [], 'g-', linewidth=1, alpha=0.5) 
+    
     ax.legend(loc='upper right')
     
     ax_button = plt.axes([0.02, 0.02, 0.15, 0.04])
@@ -213,9 +218,10 @@ def inicializar_interface():
         reiniciar_simulacao[0] = True
     
     button_reiniciar.on_clicked(on_reiniciar_clicked)
-    return fig, ax, alvo, rob, traj, button_reiniciar, reiniciar_simulacao
+    
+    return fig, ax, alvo, rob, traj, ray_f, ray_l, ray_r, button_reiniciar, reiniciar_simulacao
 
-def simular(fig, ax, alvo, rob, traj, button_reiniciar, reiniciar_simulacao):
+def simular(fig, ax, alvo, rob, traj, ray_f, ray_l, ray_r, button_reiniciar, reiniciar_simulacao):
     global OBSTACULOS, simulador_fuzzy
     
     reiniciar_simulacao[0] = False
@@ -225,7 +231,7 @@ def simular(fig, ax, alvo, rob, traj, button_reiniciar, reiniciar_simulacao):
     ax.clear()
     ax.set_xlim(0, MAP_SIZE)
     ax.set_ylim(0, MAP_SIZE)
-    ax.set_title('Navegação Fuzzy', fontsize=14)
+    ax.set_title('Navegação Fuzzy - Lidar Visualization', fontsize=14)
     ax.grid(True, alpha=0.3)
     
     for obs in OBSTACULOS:
@@ -234,6 +240,10 @@ def simular(fig, ax, alvo, rob, traj, button_reiniciar, reiniciar_simulacao):
     alvo, = ax.plot([], [], 'ro', markersize=12)
     rob, = ax.plot([], [], 'bo', markersize=10)
     traj, = ax.plot([], [], 'b-', linewidth=1.5, alpha=0.6)
+    
+    ray_f, = ax.plot([], [], 'g-', linewidth=1, alpha=0.5)
+    ray_l, = ax.plot([], [], 'g-', linewidth=1, alpha=0.5)
+    ray_r, = ax.plot([], [], 'g-', linewidth=1, alpha=0.5)
     
     x, y = 0.5, 0.5
     theta = random.uniform(0, np.pi/2)
@@ -255,11 +265,11 @@ def simular(fig, ax, alvo, rob, traj, button_reiniciar, reiniciar_simulacao):
     for step in range(3000):
         if reiniciar_simulacao[0]: break
         
-        sensores = {
-            'frontal': raycast(x, y, theta),
-            'esquerda': raycast(x, y, theta + np.pi/2),
-            'direita': raycast(x, y, theta - np.pi/2)
-        }
+        d_f = raycast(x, y, theta)
+        d_l = raycast(x, y, theta + np.pi/2)
+        d_r = raycast(x, y, theta - np.pi/2)
+        
+        sensores = {'frontal': d_f, 'esquerda': d_l, 'direita': d_r}
         
         dx, dy = alvo_x - x, alvo_y - y
         dist_alvo = np.hypot(dx, dy)
@@ -312,6 +322,19 @@ def simular(fig, ax, alvo, rob, traj, button_reiniciar, reiniciar_simulacao):
         if step % 5 == 0:
             rob.set_data([x], [y])
             traj.set_data(trajetoria_x, trajetoria_y)
+            
+            len_f = d_f / 100.0
+            len_l = d_l / 100.0
+            len_r = d_r / 100.0
+            
+            ray_f.set_data([x, x + len_f * np.cos(theta)], [y, y + len_f * np.sin(theta)])
+            ray_l.set_data([x, x + len_l * np.cos(theta + np.pi/2)], [y, y + len_l * np.sin(theta + np.pi/2)])
+            ray_r.set_data([x, x + len_r * np.cos(theta - np.pi/2)], [y, y + len_r * np.sin(theta - np.pi/2)])
+            
+            ray_f.set_color('r' if d_f < 25 else 'g')
+            ray_l.set_color('r' if d_l < 25 else 'g')
+            ray_r.set_color('r' if d_r < 25 else 'g')
+            
             plt.pause(0.001)
             
     print("Fim da simulação.")
@@ -321,7 +344,7 @@ def simular(fig, ax, alvo, rob, traj, button_reiniciar, reiniciar_simulacao):
     return True
 
 if __name__ == "__main__":
-    fig, ax, alvo, rob, traj, btn, reiniciar = inicializar_interface()
+    fig, ax, alvo, rob, traj, ray_f, ray_l, ray_r, btn, reiniciar = inicializar_interface()
     plt.show(block=False)
     while True:
-        if simular(fig, ax, alvo, rob, traj, btn, reiniciar) is None: break
+        if simular(fig, ax, alvo, rob, traj, ray_f, ray_l, ray_r, btn, reiniciar) is None: break
